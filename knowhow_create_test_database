@@ -1,0 +1,157 @@
+#!/bin/bash
+
+VER=2.0.0
+AUTHOR="hernad@bring.out.ba" 
+DAT=12.03.2012
+
+echo $DAT, $VER, $AUTHOR
+echo "---------------------------------------"
+echo " "
+
+if [[ "$1" == "--help" || "$1" == "" ]]
+then
+   echo "usage: $0 --force-drop (drop if test db exists)"
+   echo "usage: $0 --no-drop    (stop if test db exists)"
+   echo " "
+   exit 0
+fi
+
+
+if [[ "$1" == "--force-drop" ]]
+then
+  FORCE="yes"
+else
+  FORCE="no"
+fi
+
+
+export P_HOST=localhost
+export P_DATABASE=postgres
+export P_USER=postgres
+
+
+TEST_DB=f18_test
+DEMO_DUMP=f18_demo
+B_DIR=~/.f18/backup
+
+export PGPASSWORD=admin
+
+
+run_psql_cmd() {
+
+P_CMD=$1
+echo " "
+echo ">>>>>>>"
+echo "run psql cmd: $P_CMD"
+
+RET=`psql --command="$P_CMD" -h $P_HOST $P_USER $P_DATABASE 2>&1`
+
+echo " "
+
+HAS_ERROR=`echo $RET | grep -c ERROR`
+
+if [[ "$HAS_ERROR" == "0"  ]]
+then
+   echo "psql cmd ok."
+   echo " "
+   return 0
+else
+   echo "psql cmd not ok !"
+   echo " "
+   echo "poruka o gresci: $RET"
+   echo " "
+   return 1
+fi
+
+}
+
+
+echo "1) Prerequisites" 
+echo "-------------------------------------------------"
+echo " "
+echo "1.1) postgres superuser ima password  \"admin\""
+
+echo " "
+echo "1.2) backup dir $B_DIR"
+echo " "
+
+
+B_DIR=~/.f18/backup
+
+if ! [[ -d "$B_DIR" ]]
+then
+	echo "kreiram $B_DIR"
+	mkdir -p "$B_DIR" 
+else
+    ls -l -h "$B_DIR"/*
+fi
+
+
+echo 2\) kreiram testne usere i role na localhost-u
+
+RET=`curl -s https://raw.github.com/knowhow/T0_knowhow/master/sample_data/create_test_roles.sql | psql -h $P_HOST $P_DATABASE $P_USER 2>&1`  
+HAS_ERROR=`echo $RET | grep -c ERROR`
+
+echo " "
+
+if [[ "$HAS_ERROR" == "0"  ]]
+then
+   echo testni useri uspjesno kreirani.
+
+else
+   echo problem. Useri vec kreirani ?!
+   echo " "
+   echo "poruka o gresci: $RET"
+   echo " "
+   echo "svejedno nastavljam ..."
+fi
+
+echo " "
+echo 3\) kreiram database $TEST_DB
+
+
+run_psql_cmd "create database $TEST_DB owner xtrole;"
+
+if  [[ $? != 0 ]]
+then
+
+   if [[ $FORCE == "yes" ]]
+   then
+      run_psql_cmd "drop database $TEST_DB;"
+      run_psql_cmd "create database $TEST_DB owner xtrole;"
+   
+   else
+      echo "stop - db $TEST_DB exists"
+	  echo "no drop force - no restore bye bye ..."
+	  echo " "
+      exit 1
+   fi
+
+fi
+
+
+
+echo " "
+
+echo 4\) stavljam $DEMO_DB
+
+F2=${B_DIR}/${DEMO_DUMP}.dump.gz
+
+
+if [[ -f "$F2" ]]
+then
+   echo "$F2 postoji nema potrebe za internet download"
+else
+   wget http://knowhow-erp-f18.googlecode.com/files/${DEMO_DUMP}.dump.gz -O "$F2"
+fi
+
+if [[ $? != 0 ]]
+then
+    echo "wget $F2 - internet download neuspjesan  !?"
+	exit 1
+fi
+
+
+exec f18_restore.sh  $P_HOST $P_USER $TEST_DB ${DEMO_DUMP}
+
+exit 0

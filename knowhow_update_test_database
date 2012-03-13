@@ -1,0 +1,135 @@
+#!/bin/bash
+
+VER=1.0.0
+AUTHOR="hernad@bring.out.ba" 
+DAT=12.03.2012
+
+echo $DAT, $VER, $AUTHOR
+
+
+WGET_CMD="wget -nc"
+
+HOST=localhost
+PORT=5432
+DATABASE=postgres
+USER=postgres
+
+
+DOWNLOAD_DIR=~/Downloads
+mkdir -p $DOWNLOAD_DIR
+
+
+ARCH=`uname -m`
+UBUNTU_VER=`lsb_release -a 2> /dev/null| grep Release | awk '{print $2;}'`
+
+TMP=/tmp
+
+GCODE_URL_F18=http://knowhow-erp-f18.googlecode.com/files
+GCODE_URL=http://knowhow-erp.googlecode.com/files
+
+TEST_DB=f18_test
+DEMO_DUMP=f18_demo
+B_DIR=~/.f18/backup
+
+ART_PKG=f18_db_migrate_package
+ART_PKG_EXE=knowhowERP_package_updater
+KNOWHOW_DIR=/opt/knowhowERP/util
+
+export PGPASSWORD=admin
+
+
+URL=https://github.com/knowhow/F18_knowhow/raw/master/LATEST_VERSIONS
+
+
+
+
+# --------------------------------------------------
+install_pkg_exe() {
+
+if [[ ! -f ${KNOWHOW_DIR}/${ART_PKG_EXE} ]]; then
+
+
+  echo nema $KNOWHOW_DIR/$ART_PKG_EXE
+
+  ARTIFAKT=$ART_PKG_EXE
+  artifakt_last_version
+
+  PACKAGE=${ART_PKG_EXE}_ubuntu_${UBUNTU_VER}_${ARCH}_${ARTIFAKT_VER}.${ARTIFAKT_EXT}
+  CMD="$WGET_CMD $GCODE_URL/${PACKAGE}"
+
+  cd $DOWNLOAD_DIR
+  echo $CMD
+  `$CMD`
+
+  if [[ $? != 0 ]]; then
+    ERR="WGET1"
+    ne_valja 
+  fi
+
+
+
+  cd $TMP/
+  cp $DOWNLOAD_DIR/$PACKAGE .
+  gzip -dNf $PACKAGE
+
+  cp -av $ART_PKG_EXE $KNOWHOW_DIR
+  
+  if [[ $? != 0 ]]; then
+    ERR="1"
+    ne_valja 
+  fi
+fi
+
+}
+
+ne_valja() {
+
+if [[ "$ERR" == "WGET1" ]]
+then
+   echo WGET knowhowERP_package_updater neuspjesan !
+fi
+
+
+if [[ "$ERR" == "1" ]]
+then
+   echo "knowhowERP nije instaliran"
+fi
+
+exit 1
+
+}
+
+# --------------------------------------------------
+artifakt_last_version() {
+
+ARTIFAKT_LINE=`wget --no-check-certificate $URL -qO- | grep ^$ARTIFAKT`
+
+echo $ARTIFAKT_LINE
+
+ARTIFAKT_VER=`echo $ARTIFAKT_LINE | awk '{print $2;}'`
+ARTIFAKT_EXT=`echo $ARTIFAKT_LINE | awk '{print $3;}'`
+
+}
+
+ARTIFAKT=$ART_PKG
+artifakt_last_version
+
+
+# updater package
+cd $DOWNLOAD_DIR
+PKG_FILE="${ARTIFAKT}_${ARTIFAKT_VER}.${ARTIFAKT_EXT}"
+CMD="${WGET_CMD} ${GCODE_URL_F18}/${PKG_FILE}"
+
+echo $CMD
+`$CMD`
+
+FULL_PKG_FILE="${DOWNLOAD_DIR}/${PKG_FILE}"
+
+install_pkg_exe
+
+
+CMD="$ART_PKG_EXE -databaseURL=PSQL7://${HOST}:${PORT}/${TEST_DB}  -username=${USER} -passwd=${PGPASSWORD} -debug -file=${FULL_PKG_FILE} -autorun"
+echo $CMD
+`$CMD`
+
+
