@@ -152,6 +152,7 @@ then
 fi
 
 
-exec f18_restore.sh  $P_HOST $P_USER $TEST_DB ${DEMO_DUMP}
+#exec f18_restore.sh  $P_HOST $P_USER $TEST_DB ${DEMO_DUMP}
+exec knowhow_restore_db  $P_HOST $P_USER $TEST_DB ${DEMO_DUMP}
 
 exit 0
