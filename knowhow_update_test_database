@@ -18,9 +18,20 @@ USER=postgres
 DOWNLOAD_DIR=~/Downloads
 mkdir -p $DOWNLOAD_DIR
 
+DARWIN=`uname -a | grep -c Darwin`
 
 ARCH=`uname -m`
-UBUNTU_VER=`lsb_release -a 2> /dev/null| grep Release | awk '{print $2;}'`
+
+if [[ "$DARWIN" == "1" ]]
+then
+    OS=macosx
+    OS_VER=10.6
+else
+    OS=ubuntu
+    OS_VER=`lsb_release -a 2> /dev/null| grep Release | awk '{print $2;}'`
+fi
+
+echo "OS=$OS"
 
 TMP=/tmp
 
@@ -54,7 +65,7 @@ if [[ ! -f ${KNOWHOW_DIR}/${ART_PKG_EXE} ]]; then
   ARTIFAKT=$ART_PKG_EXE
   artifakt_last_version
 
-  PACKAGE=${ART_PKG_EXE}_ubuntu_${UBUNTU_VER}_${ARCH}_${ARTIFAKT_VER}.${ARTIFAKT_EXT}
+  PACKAGE=${ART_PKG_EXE}_${OS}_${OS_VER}_${ARCH}_${ARTIFAKT_VER}.${ARTIFAKT_EXT}
   CMD="$WGET_CMD $GCODE_URL/${PACKAGE}"
 
   cd $DOWNLOAD_DIR
@@ -71,7 +82,7 @@ if [[ ! -f ${KNOWHOW_DIR}/${ART_PKG_EXE} ]]; then
   cd $TMP/
   cp $DOWNLOAD_DIR/$PACKAGE .
   gzip -dNf $PACKAGE
-
+  chmod +x $ART_PKG_EXE
   cp -av $ART_PKG_EXE $KNOWHOW_DIR
   
   if [[ $? != 0 ]]; then
